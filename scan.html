@@ -4,34 +4,16 @@
 <head>
   <title>Scan Product</title>
 
-  <!-- Scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
-
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-  <style>
-    body {
-      font-family: Arial;
-    }
-    #reader {
-      width: 300px;
-      margin-bottom: 20px;
-    }
-    .result {
-      font-size: 18px;
-      font-weight: bold;
-    }
-  </style>
 </head>
 
 <body>
 
 <h2>Scan Product</h2>
 
-<div id="reader"></div>
-
-<div class="result" id="result"></div>
+<div id="reader" style="width:350px;"></div>
+<h3 id="result"></h3>
 
 <script>
 const { createClient } = window.supabase;
@@ -41,43 +23,48 @@ const supabaseClient = createClient(
   "YOUR_NEW_KEY"
 );
 
-let scanned = false;
+let lastScanned = "";
 
-// When barcode scanned
+// ✅ Scan success
 async function onScanSuccess(decodedText) {
 
-  if (scanned) return;
-  scanned = true;
+  // prevent same scan repeat
+  if (decodedText === lastScanned) return;
+  lastScanned = decodedText;
+
+  document.getElementById("result").innerHTML = "Scanning: " + decodedText;
 
   // 🔍 Find product
   const { data, error } = await supabaseClient
     .from("products")
     .select("*")
     .eq("barcode", decodedText)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (!data) {
     document.getElementById("result").innerHTML = "❌ Product not found";
-    scanned = false;
     return;
   }
 
-  // ✅ Mark as purchased
-  await supabaseClient
+  // ✅ Update DB
+  const { error: updateError } = await supabaseClient
     .from("products")
     .update({ purchased: true })
     .eq("barcode", decodedText);
 
-  // 📢 Show result
+  if (updateError) {
+    document.getElementById("result").innerHTML = "❌ Update failed";
+    return;
+  }
+
   document.getElementById("result").innerHTML = `
     ✅ Purchased <br>
-    Name: ${data.name} <br>
-    Price: ${data.price}
+    ${data.name} - ₹${data.price}
   `;
-
-  // Allow next scan after 3 sec
-  setTimeout(() => scanned = false, 3000);
 }
+
+// ❌ Ignore errors
+function onScanError(err) {}
 
 // Start scanner
 const html5QrCode = new Html5Qrcode("reader");
@@ -86,8 +73,12 @@ Html5Qrcode.getCameras().then(devices => {
   if (devices.length) {
     html5QrCode.start(
       devices[0].id,
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
+      {
+        fps: 15,
+        qrbox: { width: 250, height: 120 } // better for barcode
+      },
+      onScanSuccess,
+      onScanError
     );
   }
 });
