@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Add Product</title>
+
+  <!-- Barcode Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+
+<body>
+
+<h2>Add Product</h2>
+
+<input id="id" placeholder="Product ID"><br><br>
+<input id="name" placeholder="Product Name"><br><br>
+<input id="price" placeholder="Price"><br><br>
+
+<button onclick="createProduct()">Save Product</button>
+
+<h3>Generated Barcode</h3>
+<svg id="barcode"></svg>
+
+<script>
+const { createClient } = window.supabase;
+
+const supabaseClient = createClient(
+  "https://eyekpbzcdouhkquqjjae.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZWtwYnpjZG91aGtxdXFqamFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQyMjYsImV4cCI6MjA5MDAxMDIyNn0.AqvbWC_8Y_D3aKpafiGZKS2DOZTNJ9-DM0s2IjlJTps"
+);
+
+async function createProduct() {
+  const id = document.getElementById("id").value;
+  const name = document.getElementById("name").value;
+  const price = document.getElementById("price").value;
+
+  if (!id || !name) {
+    alert("Please enter ID and Name");
+    return;
+  }
+
+  // Generate Barcode
+  JsBarcode("#barcode", id, {
+    format: "CODE128",
+    displayValue: true
+  });
+
+  // Insert into Supabase
+  const { error } = await supabaseClient
+    .from("products")
+    .insert([{
+      id: id,
+      name: name,
+      price: price,
+      barcode: id,
+      purchased: false
+    }]);
+
+  if (error) {
+    alert("Error: " + error.message);
+  } else {
+    alert("✅ Product saved successfully!");
+  }
+}
+</script>
+
+</body>
+</html>

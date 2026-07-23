@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>View Products</title>
+
+  <!-- Barcode Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    .product {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px;
+      width: 300px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>All Products</h2>
+
+<div id="productList"></div>
+
+<script>
+const { createClient } = window.supabase;
+
+const supabaseClient = createClient(
+  "https://eyekpbzcdouhkquqjjae.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZWtwYnpjZG91aGtxdXFqamFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQyMjYsImV4cCI6MjA5MDAxMDIyNn0.AqvbWC_8Y_D3aKpafiGZKS2DOZTNJ9-DM0s2IjlJTps"
+);
+
+// Load products
+async function loadProducts() {
+  const { data, error } = await supabaseClient
+    .from("products")
+    .select("*");
+
+  if (error) {
+    alert("Error loading products");
+    return;
+  }
+
+  const container = document.getElementById("productList");
+  container.innerHTML = "";
+
+  data.forEach(product => {
+
+    const div = document.createElement("div");
+    div.className = "product";
+
+    div.innerHTML = `
+      <b>Name:</b> ${product.name} <br>
+      <b>Price:</b> ${product.price} <br>
+      <b>Status:</b> ${product.purchased ? "✅ Purchased" : "🛒 Not Purchased"} <br>
+      <svg id="barcode-${product.id}"></svg>
+    `;
+
+    container.appendChild(div);
+
+    // Generate barcode for each product
+    JsBarcode(`#barcode-${product.id}`, product.barcode, {
+      format: "CODE128",
+      displayValue: true,
+      width: 2,
+      height: 50
+    });
+  });
+}
+
+// Load on page start
+loadProducts();
+</script>
+
+</body>
+</html>
