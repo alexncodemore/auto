@@ -2,36 +2,21 @@
 <html>
 
 <head>
-  <title>Scan Product</title>
+  <title>Barcode Scanner</title>
 
-  <!-- Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Barcode Scanner -->
+  <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
 
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-  <style>
-    body {
-      font-family: Arial;
-    }
-    #reader {
-      width: 300px;
-      margin-bottom: 20px;
-    }
-    .result {
-      font-size: 18px;
-      font-weight: bold;
-    }
-  </style>
 </head>
 
 <body>
 
-<h2>Scan Product</h2>
+<h2>Scan Barcode check</h2>
 
-<div id="reader"></div>
-
-<div class="result" id="result"></div>
+<div id="scanner" style="width: 400px;"></div>
+<h3 id="result"></h3>
 
 <script>
 const { createClient } = window.supabase;
@@ -41,18 +26,31 @@ const supabaseClient = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZWtwYnpjZG91aGtxdXFqamFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQyMjYsImV4cCI6MjA5MDAxMDIyNn0.AqvbWC_8Y_D3aKpafiGZKS2DOZTNJ9-DM0s2IjlJTps"
 );
 
-let lastScanned = "";
+// Start Quagga
+Quagga.init({
+  inputStream: {
+    name: "Live",
+    type: "LiveStream",
+    target: document.querySelector('#scanner'),
+    constraints: {
+      facingMode: "environment" // back camera
+    }
+  },
+  decoder: {
+    readers: ["code_128_reader"] // matches your barcode
+  }
+}, function(err) {
+  if (err) {
+    console.log(err);
+    return;
+  }
+  Quagga.start();
+});
 
-// ✅ Scan success
-async function onScanSuccess(decodedText) {
-
-  const code = decodedText.trim();
-
-  console.log("SCANNED:", code);
-
-  // prevent duplicate scan
-  if (code === lastScanned) return;
-  lastScanned = code;
+// When detected
+Quagga.onDetected(async function(result) {
+  const code = result.codeResult.code;
+  document.getElementById("result").innerHTML = "Scanned: " + code;
 
   // 🔍 Find product
   const { data } = await supabaseClient
@@ -62,12 +60,11 @@ async function onScanSuccess(decodedText) {
     .maybeSingle();
 
   if (!data) {
-    document.getElementById("result").innerHTML =
-      "❌ Not found: " + code;
+    document.getElementById("result").innerHTML = "❌ Not found: " + code;
     return;
   }
 
-  // ✅ Update
+  // ✅ Update DB
   await supabaseClient
     .from("products")
     .update({ purchased: true })
@@ -75,26 +72,6 @@ async function onScanSuccess(decodedText) {
 
   document.getElementById("result").innerHTML =
     "✅ Purchased: " + data.name;
-}
-
-// ignore scan errors
-function onScanError(err) {}
-
-// Start scanner
-const html5QrCode = new Html5Qrcode("reader");
-
-Html5Qrcode.getCameras().then(devices => {
-  if (devices.length) {
-    html5QrCode.start(
-      devices[0].id,
-      {
-        fps: 15,
-        qrbox: { width: 300, height: 120 } // 🔥 IMPORTANT FIX
-      },
-      onScanSuccess,
-      onScanError
-    );
-  }
 });
 </script>
 
