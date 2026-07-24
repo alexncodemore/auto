@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Super Admin</title>
+</head>
+
+<body>
+
+<h2>Pending Users</h2>
+
+<button onclick="loadUsers()">Load Users</button>
+
+<div id="users"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+const client = supabase.createClient(
+    "https://eyekpbzcdouhkquqjjae.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZWtwYnpjZG91aGtxdXFqamFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQyMjYsImV4cCI6MjA5MDAxMDIyNn0.AqvbWC_8Y_D3aKpafiGZKS2DOZTNJ9-DM0s2IjlJTps"
+);
+
+// LOAD USERS
+async function loadUsers() {
+    const { data, error } = await client
+        .from("users")
+        .select("*")
+        .eq("approved", false);
+
+    let html = "";
+
+    data.forEach(user => {
+        html += `
+            <p>
+                ${user.email}
+                <button onclick="approve('${user.id}')">Approve</button>
+            </p>
+        `;
+    });
+
+    document.getElementById("users").innerHTML = html;
+}
+
+// APPROVE USER
+async function approve(id) {
+    const { error } = await client
+        .from("users")
+        .update({ approved: true })
+        .eq("id", id);
+
+    if (!error) {
+        alert("Approved!");
+        loadUsers();
+    }
+}
+
+</script>
+
+</body>
+</html>
