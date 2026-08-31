@@ -3,43 +3,41 @@
 
 <head>
 
-<title>Customer Scan Checkout</title>
+    <title>Customer Self Checkout</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
 
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+        }
 
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+        .box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 8px;
+        }
 
+        input,
+        button {
+            padding: 8px;
+            margin: 5px;
+        }
 
-<style>
+        button {
+            cursor: pointer;
+        }
 
-body{
-font-family:Arial;
-padding:20px;
-}
-
-
-.box{
-border:1px solid #ccc;
-padding:15px;
-margin:10px;
-border-radius:8px;
-}
-
-
-button,input{
-padding:8px;
-margin:5px;
-}
-
-
-video{
-width:350px;
-border:2px solid black;
-}
-
-
-</style>
+        video {
+            width: 350px;
+            border: 2px solid black;
+        }
+    </style>
 
 
 </head>
@@ -48,127 +46,130 @@ border:2px solid black;
 <body>
 
 
-<h1>Self Checkout</h1>
+    <h1>Customer Self Checkout</h1>
 
 
 
-<div class="box">
+    <div class="box">
 
-<h3>Login</h3>
+        <h3>Register</h3>
 
 
-<input id="loginEmail" placeholder="Email">
+        <input id="regName" placeholder="Full Name">
 
+        <br>
 
-<input id="loginPassword" type="password">
+        <input id="regEmail" placeholder="Email">
 
+        <br>
 
-<button onclick="login()">
-Login
-</button>
+        <input id="regPassword" type="password" placeholder="Password">
 
 
-</div>
+        <br>
 
+        <button type="button" onclick="register()">
+            Register
+        </button>
 
 
-<hr>
+    </div>
 
 
 
-<div class="box">
 
 
-<h3>Search Store</h3>
+    <div class="box">
 
 
-<input id="businessSearch" placeholder="Business name">
+        <h3>Login</h3>
 
 
-<button onclick="searchBusiness()">
-Search
-</button>
+        <input id="loginEmail" placeholder="Email">
 
 
-<div id="businessList"></div>
+        <br>
 
 
-</div>
+        <input id="loginPassword" type="password" placeholder="Password">
 
 
+        <br>
 
-<hr>
 
+        <button type="button" onclick="login()">
+            Login
+        </button>
 
 
+    </div>
 
-<div class="box">
 
 
-<h3>Camera Scanner</h3>
 
 
-<video id="video"></video>
+    <div class="box">
 
 
-<br>
+        <h3>Search Business</h3>
 
 
-<button onclick="startScanner()">
-Start Camera
-</button>
+        <input id="businessSearch" placeholder="Store name">
 
 
-<div id="scanResult"></div>
+        <button type="button" onclick="searchBusiness()">
+            Search
+        </button>
 
 
-</div>
+        <div id="businessList"></div>
 
 
+    </div>
 
 
 
-<hr>
 
 
 
+    <div class="box">
 
-<div class="box">
 
+        <h3>Barcode Scanner</h3>
 
-<h3>Products</h3>
 
+        <video id="video"></video>
 
-<div id="products"></div>
 
+        <br>
 
-</div>
 
+        <button type="button" onclick="startScanner()">
+            Start Camera
+        </button>
 
 
+        <div id="scanResult"></div>
 
 
+    </div>
 
-<hr>
 
 
 
 
-<div class="box">
 
 
-<h3>Cart</h3>
+    <div class="box">
 
 
-<button onclick="loadCart()">
-View Cart
-</button>
+        <h3>Products</h3>
 
 
-<div id="cart"></div>
+        <div id="products"></div>
 
 
-</div>
+    </div>
 
 
 
@@ -176,130 +177,214 @@ View Cart
 
 
 
-<script>
+    <div class="box">
 
 
+        <h3>Cart</h3>
 
-const SUPABASE_URL =
-"https://bqtibupokfrojxlnhhaf.supabase.co";
 
+        <button type="button" onclick="loadCart()">
+            View Cart
+        </button>
 
-const SUPABASE_KEY =
+
+        <div id="cartView"></div>
+
+
+    </div>
+
+
+
+
+
+
+
+    <script>
+
+
+        const SUPABASE_URL =
+            "https://bqtibupokfrojxlnhhaf.supabase.co";
+
+
+        const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxdGlidXBva2Zyb2p4bG5oaGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NjE3OTIsImV4cCI6MjEwMjMzNzc5Mn0.NHNA2I7Ug3RaAi0imcJ-9hMk8htSjR1W76GmBl-WhXU";
 
 
 
-
-const db =
-supabase.createClient(
-SUPABASE_URL,
-SUPABASE_KEY
-);
-
+        const db =
+            supabase.createClient(
+                SUPABASE_URL,
+                SUPABASE_KEY
+            );
 
 
-let user=null;
 
-let selectedBusiness=null;
+        let user = null;
 
-let cart=null;
+        let selectedBusiness = null;
 
-let codeReader=null;
+        let currentCart = null;
 
+        let codeReader = null;
 
 
 
 
 
-// LOGIN
+        // REGISTER
 
 
-async function login(){
+        async function register() {
 
 
-let {data,error}=await db.auth.signInWithPassword({
+            const { error } = await db.auth.signUp({
 
-email:loginEmail.value,
+                email:
+                    document.getElementById("regEmail").value,
 
-password:loginPassword.value
-
-});
-
-
-
-if(error){
-
-alert(error.message);
-
-return;
-
-}
+                password:
+                    document.getElementById("regPassword").value,
 
 
+                options: {
 
-user=data.user;
+                    data: {
 
+                        full_name:
+                            document.getElementById("regName").value
 
-alert("Login successful");
+                    }
 
+                }
 
-}
+            });
 
 
 
+            if (error) {
+
+                alert(error.message);
+
+                return;
+
+            }
+
+
+            alert("Registration successful");
+
+
+        }
 
 
 
 
 
-// SEARCH BUSINESS
 
 
-async function searchBusiness(){
+        // LOGIN
 
 
+        async function login() {
 
-let {data,error}=await db
 
-.from("business_approved")
+            const email =
+                document.getElementById("loginEmail").value;
 
-.select("*")
 
-.ilike(
-"name",
-"%"+businessSearch.value+"%"
-);
+            const password =
+                document.getElementById("loginPassword").value;
 
 
 
-if(error){
+            const { data, error } = await db.auth.signInWithPassword({
 
-alert(error.message);
+                email,
 
-return;
+                password
 
-}
-
-
-
-let html="";
+            });
 
 
 
-data.forEach(b=>{
+            if (error) {
+
+                alert(error.message);
+
+                return;
+
+            }
 
 
-html+=`
+
+            user = data.user;
+
+
+            alert(
+                "Login successful"
+            );
+
+
+
+        }
+
+
+
+
+
+
+
+
+        // SEARCH BUSINESS
+
+
+        async function searchBusiness() {
+
+
+            const text =
+                document.getElementById("businessSearch").value;
+
+
+
+            const { data, error } = await db
+
+                .from("business_approved")
+
+                .select("*")
+
+                .ilike(
+                    "name",
+                    "%" + text + "%"
+                );
+
+
+
+            if (error) {
+
+                alert(error.message);
+
+                return;
+
+            }
+
+
+
+            let html = "";
+
+
+
+            data.forEach(b => {
+
+
+                html += `
 
 <div class="box">
-
 
 <h3>${b.name}</h3>
 
 
 <button onclick='selectBusiness(${JSON.stringify(b)})'>
 
-Open
+Open Store
 
 </button>
 
@@ -310,41 +395,17 @@ Open
 
 
 
-});
+            });
 
 
 
-businessList.innerHTML=html;
-
-
-}
-
-
+            document.getElementById(
+                "businessList"
+            ).innerHTML = html;
 
 
 
-
-
-
-// SELECT BUSINESS
-
-
-function selectBusiness(b){
-
-
-selectedBusiness=b;
-
-
-alert(
-"Selected : "+b.name
-);
-
-
-
-loadProducts();
-
-
-}
+        }
 
 
 
@@ -352,44 +413,71 @@ loadProducts();
 
 
 
-// LOAD PRODUCTS
+
+        // SELECT BUSINESS
 
 
-async function loadProducts(){
+        function selectBusiness(b) {
 
 
-
-let {data,error}=await db
-
-.from("products")
-
-.select("*")
-
-.eq(
-"business_id",
-selectedBusiness.id
-);
+            selectedBusiness = b;
 
 
+            alert(
+                "Selected " + b.name
+            );
 
-if(error){
 
-alert(error.message);
+            loadProducts();
 
-return;
 
-}
+        }
 
 
 
-let html="";
 
 
 
-data.forEach(p=>{
 
 
-html+=`
+
+        // LOAD PRODUCTS
+
+
+        async function loadProducts() {
+
+
+            const { data, error } = await db
+
+                .from("products")
+
+                .select("*")
+
+                .eq(
+                    "business_id",
+                    selectedBusiness.id
+                );
+
+
+
+            if (error) {
+
+                alert(error.message);
+
+                return;
+
+            }
+
+
+
+            let html = "";
+
+
+
+            data.forEach(p => {
+
+
+                html += `
 
 <div class="box">
 
@@ -397,7 +485,7 @@ html+=`
 <h3>${p.name}</h3>
 
 
-Barcode ID:
+Barcode:
 
 ${p.id}
 
@@ -413,6 +501,14 @@ Price:
 <br>
 
 
+Stock:
+
+${p.stock}
+
+
+<br>
+
+
 <button onclick="addToCart(${p.id})">
 
 Add Cart
@@ -422,18 +518,21 @@ Add Cart
 
 </div>
 
+
 `;
 
 
 
-});
+            });
 
 
 
-products.innerHTML=html;
+            document.getElementById(
+                "products"
+            ).innerHTML = html;
 
 
-}
+        }
 
 
 
@@ -443,68 +542,70 @@ products.innerHTML=html;
 
 
 
-// START CAMERA SCANNER
+        // START CAMERA
 
 
-function startScanner(){
+        function startScanner() {
 
 
+            if (!selectedBusiness) {
 
-if(!selectedBusiness){
+                alert("Select business first");
 
-alert("Select business first");
+                return;
 
-return;
+            }
 
-}
 
 
+            codeReader =
+                new ZXing.BrowserMultiFormatReader();
 
-codeReader =
-new ZXing.BrowserMultiFormatReader();
 
 
+            codeReader.decodeFromVideoDevice(
 
-codeReader.decodeFromVideoDevice(
+                null,
 
-null,
+                "video",
 
-"video",
+                (result, error) => {
 
-(result,error)=>{
 
+                    if (result) {
 
-if(result){
 
+                        let barcode = result.text;
 
-let barcode=result.text;
 
 
+                        document.getElementById(
+                            "scanResult"
+                        ).innerHTML =
 
-scanResult.innerHTML=
+                            "Scanned : " + barcode;
 
-"Scanned : "+barcode;
 
 
+                        codeReader.reset();
 
-codeReader.reset();
 
 
+                        findProduct(barcode);
 
-findProduct(barcode);
 
 
+                    }
 
-}
 
+                }
 
-}
 
+            );
 
-);
 
+        }
 
-}
 
 
 
@@ -513,66 +614,51 @@ findProduct(barcode);
 
 
 
+        // FIND PRODUCT FROM BARCODE
 
-// SEARCH SCANNED PRODUCT
 
+        async function findProduct(barcode) {
 
-async function findProduct(barcode){
 
+            const { data, error } = await db
 
+                .from("products")
 
-let {data,error}=await db
+                .select("*")
 
+                .eq(
+                    "id",
+                    barcode
+                )
 
-.from("products")
+                .eq(
+                    "business_id",
+                    selectedBusiness.id
+                )
 
-.select("*")
+                .single();
 
 
-.eq(
-"id",
-barcode
-)
 
+            if (error) {
 
-.eq(
-"business_id",
-selectedBusiness.id
-)
+                alert("Product not found");
 
+                return;
 
-.single();
+            }
 
 
 
+            document.getElementById(
+                "scanResult"
+            ).innerHTML =
 
-if(error){
-
-alert(
-"Product not found"
-);
-
-
-return;
-
-}
-
-
-
-
-scanResult.innerHTML=`
+                `
 
 <h3>${data.name}</h3>
 
-Price:
-₹${data.price}
-
-
-<br>
-
-
-Stock:
-${data.stock}
+Price ₹${data.price}
 
 
 <br>
@@ -588,7 +674,7 @@ Add Cart
 
 
 
-}
+        }
 
 
 
@@ -598,82 +684,87 @@ Add Cart
 
 
 
-// CREATE CART
+        // CREATE CART
 
 
-async function createCart(){
+        async function createCart() {
 
 
 
-let {data}=await db
+            let { data, error } = await db
 
+                .from("carts")
 
-.from("carts")
+                .select("*")
 
+                .eq(
+                    "user_id",
+                    user.id
+                )
 
-.select("*")
+                .eq(
+                    "business_id",
+                    selectedBusiness.id
+                )
 
+                .eq(
+                    "status",
+                    "active"
+                )
 
-.eq(
-"user_id",
-user.id
-)
+                .maybeSingle();
 
 
-.eq(
-"business_id",
-selectedBusiness.id
-)
 
+            if (data) {
 
-.eq(
-"status",
-"active"
-)
+                currentCart = data;
 
+                return data;
 
-.maybeSingle();
+            }
 
 
 
-if(data){
 
-cart=data;
+            let result = await db
 
-return;
+                .from("carts")
 
-}
+                .insert({
 
+                    user_id: user.id,
 
+                    business_id: selectedBusiness.id,
 
+                    status: "active"
 
-let result=await db
+                })
 
+                .select()
 
-.from("carts")
+                .single();
 
 
-.insert({
 
-user_id:user.id,
+            if (result.error) {
 
-business_id:selectedBusiness.id,
+                alert(result.error.message);
 
-status:"active"
+                return null;
 
-})
+            }
 
 
-.select()
 
-.single();
+            currentCart = result.data;
 
 
+            return currentCart;
 
-cart=result.data;
 
+        }
 
-}
 
 
 
@@ -682,85 +773,110 @@ cart=result.data;
 
 
 
-// ADD CART
+        // ADD CART
 
 
-async function addToCart(productId){
+        async function addToCart(productId) {
 
 
 
-if(!user){
+            if (!user) {
 
-alert("Login first");
+                alert("Login first");
 
-return;
+                return;
 
-}
+            }
 
 
+            await createCart();
 
-await createCart();
 
 
+            const { data: product, error: pError } = await db
 
-let {error}=await db
+                .from("products")
 
+                .select("price")
 
-.from("cart_items")
+                .eq(
+                    "id",
+                    productId
+                )
 
+                .single();
 
-.insert({
 
-cart_id:cart.id,
 
-product_id:productId,
+            if (pError) {
 
-quantity:1
+                alert(pError.message);
 
-});
+                return;
 
+            }
 
 
-if(error){
 
-alert(error.message);
 
-}
 
-else{
+            const { error } = await db
 
-alert("Added");
+                .from("cart_items")
 
-}
+                .insert({
 
+                    cart_id: currentCart.id,
 
-}
+                    product_id: productId,
 
+                    quantity: 1,
 
+                    price: product.price
 
+                });
 
 
 
+            if (error) {
 
+                alert(error.message);
 
-// VIEW CART
+                return;
 
+            }
 
-async function loadCart(){
 
 
+            alert("Added to cart");
 
-await createCart();
 
+        }
 
 
-let {data,error}=await db
 
 
-.from("cart_items")
 
 
-.select(`
+
+
+
+        // VIEW CART
+
+
+        async function loadCart() {
+
+
+
+            await createCart();
+
+
+
+            const { data, error } = await db
+
+                .from("cart_items")
+
+                .select(`
 
 quantity,
 
@@ -770,37 +886,50 @@ products(name)
 
 `)
 
-
-.eq(
-"cart_id",
-cart.id
-);
-
-
-
-if(error){
-
-alert(error.message);
-
-return;
-
-}
+                .eq(
+                    "cart_id",
+                    currentCart.id
+                );
 
 
 
-let html="";
+            if (error) {
+
+                alert(error.message);
+
+                return;
+
+            }
 
 
-data.forEach(i=>{
+
+            let html = "";
 
 
-html+=`
+            let total = 0;
 
-${i.products.name}
+
+
+            data.forEach(item => {
+
+
+                let amount =
+                    item.price * item.quantity;
+
+
+                total += amount;
+
+
+
+                html += `
+
+${item.products.name}
 
 ×
 
-${i.quantity}
+${item.quantity}
+
+₹${amount}
 
 <br>
 
@@ -808,19 +937,31 @@ ${i.quantity}
 
 
 
-});
+            });
 
 
 
-cart.innerHTML=html;
+            html += `
+
+<hr>
+
+Total ₹${total}
+
+`;
 
 
-}
+
+            document.getElementById(
+                "cartView"
+            ).innerHTML = html;
+
+
+        }
 
 
 
-</script>
 
+    </script>
 
 
 </body>
