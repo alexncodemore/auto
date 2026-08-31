@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Customer Scan Checkout</title>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+
+
+<style>
+
+body{
+font-family:Arial;
+padding:20px;
+}
+
+
+.box{
+border:1px solid #ccc;
+padding:15px;
+margin:10px;
+border-radius:8px;
+}
+
+
+button,input{
+padding:8px;
+margin:5px;
+}
+
+
+video{
+width:350px;
+border:2px solid black;
+}
+
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+<h1>Self Checkout</h1>
+
+
+
+<div class="box">
+
+<h3>Login</h3>
+
+
+<input id="loginEmail" placeholder="Email">
+
+
+<input id="loginPassword" type="password">
+
+
+<button onclick="login()">
+Login
+</button>
+
+
+</div>
+
+
+
+<hr>
+
+
+
+<div class="box">
+
+
+<h3>Search Store</h3>
+
+
+<input id="businessSearch" placeholder="Business name">
+
+
+<button onclick="searchBusiness()">
+Search
+</button>
+
+
+<div id="businessList"></div>
+
+
+</div>
+
+
+
+<hr>
+
+
+
+
+<div class="box">
+
+
+<h3>Camera Scanner</h3>
+
+
+<video id="video"></video>
+
+
+<br>
+
+
+<button onclick="startScanner()">
+Start Camera
+</button>
+
+
+<div id="scanResult"></div>
+
+
+</div>
+
+
+
+
+
+<hr>
+
+
+
+
+<div class="box">
+
+
+<h3>Products</h3>
+
+
+<div id="products"></div>
+
+
+</div>
+
+
+
+
+
+
+<hr>
+
+
+
+
+<div class="box">
+
+
+<h3>Cart</h3>
+
+
+<button onclick="loadCart()">
+View Cart
+</button>
+
+
+<div id="cart"></div>
+
+
+</div>
+
+
+
+
+
+
+
+<script>
+
+
+
+const SUPABASE_URL =
+"https://bqtibupokfrojxlnhhaf.supabase.co";
+
+
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxdGlidXBva2Zyb2p4bG5oaGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NjE3OTIsImV4cCI6MjEwMjMzNzc5Mn0.NHNA2I7Ug3RaAi0imcJ-9hMk8htSjR1W76GmBl-WhXU";
+
+
+
+
+const db =
+supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+
+
+let user=null;
+
+let selectedBusiness=null;
+
+let cart=null;
+
+let codeReader=null;
+
+
+
+
+
+
+// LOGIN
+
+
+async function login(){
+
+
+let {data,error}=await db.auth.signInWithPassword({
+
+email:loginEmail.value,
+
+password:loginPassword.value
+
+});
+
+
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+
+
+user=data.user;
+
+
+alert("Login successful");
+
+
+}
+
+
+
+
+
+
+
+
+// SEARCH BUSINESS
+
+
+async function searchBusiness(){
+
+
+
+let {data,error}=await db
+
+.from("business_approved")
+
+.select("*")
+
+.ilike(
+"name",
+"%"+businessSearch.value+"%"
+);
+
+
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+
+
+let html="";
+
+
+
+data.forEach(b=>{
+
+
+html+=`
+
+<div class="box">
+
+
+<h3>${b.name}</h3>
+
+
+<button onclick='selectBusiness(${JSON.stringify(b)})'>
+
+Open
+
+</button>
+
+
+</div>
+
+`;
+
+
+
+});
+
+
+
+businessList.innerHTML=html;
+
+
+}
+
+
+
+
+
+
+
+
+// SELECT BUSINESS
+
+
+function selectBusiness(b){
+
+
+selectedBusiness=b;
+
+
+alert(
+"Selected : "+b.name
+);
+
+
+
+loadProducts();
+
+
+}
+
+
+
+
+
+
+
+// LOAD PRODUCTS
+
+
+async function loadProducts(){
+
+
+
+let {data,error}=await db
+
+.from("products")
+
+.select("*")
+
+.eq(
+"business_id",
+selectedBusiness.id
+);
+
+
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+
+
+let html="";
+
+
+
+data.forEach(p=>{
+
+
+html+=`
+
+<div class="box">
+
+
+<h3>${p.name}</h3>
+
+
+Barcode ID:
+
+${p.id}
+
+
+<br>
+
+
+Price:
+
+₹${p.price}
+
+
+<br>
+
+
+<button onclick="addToCart(${p.id})">
+
+Add Cart
+
+</button>
+
+
+</div>
+
+`;
+
+
+
+});
+
+
+
+products.innerHTML=html;
+
+
+}
+
+
+
+
+
+
+
+
+
+// START CAMERA SCANNER
+
+
+function startScanner(){
+
+
+
+if(!selectedBusiness){
+
+alert("Select business first");
+
+return;
+
+}
+
+
+
+codeReader =
+new ZXing.BrowserMultiFormatReader();
+
+
+
+codeReader.decodeFromVideoDevice(
+
+null,
+
+"video",
+
+(result,error)=>{
+
+
+if(result){
+
+
+let barcode=result.text;
+
+
+
+scanResult.innerHTML=
+
+"Scanned : "+barcode;
+
+
+
+codeReader.reset();
+
+
+
+findProduct(barcode);
+
+
+
+}
+
+
+}
+
+
+);
+
+
+}
+
+
+
+
+
+
+
+
+
+// SEARCH SCANNED PRODUCT
+
+
+async function findProduct(barcode){
+
+
+
+let {data,error}=await db
+
+
+.from("products")
+
+.select("*")
+
+
+.eq(
+"id",
+barcode
+)
+
+
+.eq(
+"business_id",
+selectedBusiness.id
+)
+
+
+.single();
+
+
+
+
+if(error){
+
+alert(
+"Product not found"
+);
+
+
+return;
+
+}
+
+
+
+
+scanResult.innerHTML=`
+
+<h3>${data.name}</h3>
+
+Price:
+₹${data.price}
+
+
+<br>
+
+
+Stock:
+${data.stock}
+
+
+<br>
+
+
+<button onclick="addToCart(${data.id})">
+
+Add Cart
+
+</button>
+
+`;
+
+
+
+}
+
+
+
+
+
+
+
+
+
+// CREATE CART
+
+
+async function createCart(){
+
+
+
+let {data}=await db
+
+
+.from("carts")
+
+
+.select("*")
+
+
+.eq(
+"user_id",
+user.id
+)
+
+
+.eq(
+"business_id",
+selectedBusiness.id
+)
+
+
+.eq(
+"status",
+"active"
+)
+
+
+.maybeSingle();
+
+
+
+if(data){
+
+cart=data;
+
+return;
+
+}
+
+
+
+
+let result=await db
+
+
+.from("carts")
+
+
+.insert({
+
+user_id:user.id,
+
+business_id:selectedBusiness.id,
+
+status:"active"
+
+})
+
+
+.select()
+
+.single();
+
+
+
+cart=result.data;
+
+
+}
+
+
+
+
+
+
+
+
+// ADD CART
+
+
+async function addToCart(productId){
+
+
+
+if(!user){
+
+alert("Login first");
+
+return;
+
+}
+
+
+
+await createCart();
+
+
+
+let {error}=await db
+
+
+.from("cart_items")
+
+
+.insert({
+
+cart_id:cart.id,
+
+product_id:productId,
+
+quantity:1
+
+});
+
+
+
+if(error){
+
+alert(error.message);
+
+}
+
+else{
+
+alert("Added");
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+// VIEW CART
+
+
+async function loadCart(){
+
+
+
+await createCart();
+
+
+
+let {data,error}=await db
+
+
+.from("cart_items")
+
+
+.select(`
+
+quantity,
+
+price,
+
+products(name)
+
+`)
+
+
+.eq(
+"cart_id",
+cart.id
+);
+
+
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+
+
+let html="";
+
+
+data.forEach(i=>{
+
+
+html+=`
+
+${i.products.name}
+
+×
+
+${i.quantity}
+
+<br>
+
+`;
+
+
+
+});
+
+
+
+cart.innerHTML=html;
+
+
+}
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
