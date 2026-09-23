@@ -1,1137 +1,836 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Self Checkout</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#FBFAF6;
-    --card:#FFFFFF;
-    --ink:#17191C;
-    --muted:#6B6F76;
-    --brand:#0E7C61;
-    --brand-dark:#0A5F4B;
-    --accent:#E23D28;
-    --line:#DAD4C6;
-    --line-strong:#B9B2A0;
-    --radius:10px;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Space Grotesk',system-ui,sans-serif;
-    -webkit-font-smoothing:antialiased;
-    min-height:100vh;
-  }
-  .mono{font-family:'IBM Plex Mono',monospace;}
-  #app{
-    max-width:480px;
-    margin:0 auto;
-    min-height:100vh;
-    background:var(--card);
-    display:flex;
-    flex-direction:column;
-    position:relative;
-    box-shadow:0 0 40px rgba(0,0,0,0.04);
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Self Checkout</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
 
-  /* ---------- top bar ---------- */
-  .topbar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:16px 20px;
-    border-bottom:2px dashed var(--line);
-  }
-  .brandmark{
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-  .brandmark svg{width:22px;height:22px;flex:none;}
-  .brandmark .name{font-weight:700;font-size:16px;letter-spacing:0.2px;}
-  .brandmark .store{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
-  .iconbtn{
-    background:none;border:none;color:var(--muted);font-size:12px;
-    font-family:'IBM Plex Mono',monospace;cursor:pointer;padding:6px 8px;
-    border-radius:6px;
-  }
-  .iconbtn:hover{background:var(--bg);color:var(--ink);}
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  /* ---------- generic layout helpers ---------- */
-  .screen{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    padding:20px;
-    gap:14px;
-  }
-  .center-screen{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    padding:28px 24px;
-    gap:18px;
-  }
-  h1{font-size:22px;margin:0 0 2px;font-weight:700;}
-  h2{font-size:18px;margin:0 0 2px;font-weight:600;}
-  p.lede{color:var(--muted);font-size:13.5px;margin:0 0 6px;line-height:1.5;}
-  label{
-    font-size:11px;
-    text-transform:none;
-    color:var(--muted);
-    font-family:'IBM Plex Mono',monospace;
-    display:block;
-    margin-bottom:4px;
-  }
-  .field{margin-bottom:12px;}
-  input, textarea{
-    width:100%;
-    padding:11px 12px;
-    border:1.5px solid var(--line);
-    border-radius:8px;
-    font-size:14.5px;
-    font-family:'Space Grotesk',sans-serif;
-    background:var(--bg);
-    color:var(--ink);
-  }
-  input:focus, textarea:focus{
-    outline:none;
-    border-color:var(--brand);
-  }
-  button{
-    cursor:pointer;
-    border:none;
-    border-radius:8px;
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:14px;
-    padding:12px 16px;
-    transition:filter .12s ease, transform .05s ease;
-  }
-  button:active{transform:scale(0.98);}
-  .btn-primary{background:var(--brand);color:#fff;}
-  .btn-primary:hover{filter:brightness(1.06);}
-  .btn-primary:disabled{background:#B9C9C2;cursor:not-allowed;}
-  .btn-outline{background:transparent;border:1.5px solid var(--ink);color:var(--ink);}
-  .btn-outline:hover{background:var(--ink);color:#fff;}
-  .btn-ghost{background:transparent;color:var(--muted);padding:8px 6px;font-weight:500;}
-  .btn-ghost:hover{color:var(--ink);}
-  .btn-danger{background:transparent;color:var(--accent);border:1.5px solid var(--accent);}
-  .btn-danger:hover{background:var(--accent);color:#fff;}
-  .btn-block{width:100%;}
-  .row{display:flex;gap:10px;}
-  .row > *{flex:1;}
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f0f4f8;
+      color: #1e293b;
+      line-height: 1.5;
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
 
-  .tabswitch{
-    display:flex;
-    border:1.5px solid var(--line);
-    border-radius:8px;
-    overflow:hidden;
-    margin-bottom:6px;
-  }
-  .tabswitch button{
-    flex:1;
-    background:var(--bg);
-    color:var(--muted);
-    border-radius:0;
-    font-size:13px;
-  }
-  .tabswitch button.active{background:var(--ink);color:#fff;}
+    h1 {
+      text-align: center;
+      color: #0f172a;
+      margin-bottom: 8px;
+      font-size: 1.8rem;
+    }
 
-  .errormsg{
-    font-size:12.5px;
-    color:var(--accent);
-    font-family:'IBM Plex Mono',monospace;
-    min-height:16px;
-  }
-  .okmsg{
-    font-size:12.5px;
-    color:var(--brand);
-    font-family:'IBM Plex Mono',monospace;
-    min-height:16px;
-  }
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
 
-  /* ---------- bottom nav ---------- */
-  .navbar{
-    display:flex;
-    border-top:2px dashed var(--line);
-    background:var(--card);
-  }
-  .navbtn{
-    flex:1;
-    background:none;
-    border:none;
-    padding:12px 4px 14px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:4px;
-    color:var(--muted);
-    font-size:11px;
-    font-family:'IBM Plex Mono',monospace;
-    border-radius:0;
-  }
-  .navbtn svg{width:19px;height:19px;}
-  .navbtn.active{color:var(--brand);}
-  .navbtn .dot{
-    position:absolute;
-  }
+    .user-bar {
+      background: #0f172a;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
-  /* ---------- cards / lists ---------- */
-  .card{
-    border:1.5px solid var(--line);
-    border-radius:var(--radius);
-    padding:14px;
-    background:var(--card);
-  }
-  .stack{display:flex;flex-direction:column;gap:10px;}
+    .user-bar span {
+      font-weight: 500;
+    }
 
-  .storepick{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .storepick .info b{font-size:14.5px;}
-  .storepick .info span{display:block;font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
 
-  .productcard{
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    align-items:flex-start;
-  }
-  .productcard .pname{font-weight:600;font-size:14.5px;margin-bottom:4px;}
-  .productmeta{font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.6;}
-  .price-tag{
-    font-family:'IBM Plex Mono',monospace;
-    font-weight:600;
-    font-size:15px;
-    white-space:nowrap;
-  }
-  .addbtn{
-    background:var(--brand);
-    color:#fff;
-    padding:8px 12px;
-    font-size:12.5px;
-    border-radius:7px;
-    white-space:nowrap;
-  }
-  .addbtn:disabled{background:#c9c4b6;cursor:not-allowed;}
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .full-width {
+        grid-column: 1 / -1;
+      }
+    }
 
-  .scanbox{
-    border:2px dashed var(--line-strong);
-    border-radius:var(--radius);
-    padding:12px;
-    text-align:center;
-    position:relative;
-  }
-  video{
-    width:100%;
-    border-radius:8px;
-    background:#000;
-    display:block;
-  }
-  .scanline{
-    position:absolute;
-    left:8%;right:8%;
-    top:50%;
-    height:2px;
-    background:var(--accent);
-    box-shadow:0 0 8px var(--accent);
-    pointer-events:none;
-  }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      border: 1px solid #e2e8f0;
+    }
 
-  .cartrow{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-    padding:10px 0;
-    border-bottom:1px dashed var(--line);
-  }
-  .cartrow:last-of-type{border-bottom:none;}
-  .cartrow .name{font-weight:600;font-size:14px;}
-  .qtybox{
-    display:flex;align-items:center;gap:8px;
-    font-family:'IBM Plex Mono',monospace;
-  }
-  .qtybtn{
-    width:26px;height:26px;padding:0;
-    border:1.5px solid var(--line-strong);
-    background:var(--bg);
-    border-radius:6px;
-    font-size:14px;
-    line-height:1;
-  }
-  .totalline{
-    display:flex;justify-content:space-between;
-    padding-top:12px;margin-top:8px;
-    border-top:2px dashed var(--line);
-    font-weight:700;font-size:17px;
-    font-family:'IBM Plex Mono',monospace;
-  }
-  .empty{
-    text-align:center;
-    color:var(--muted);
-    font-size:13px;
-    padding:30px 10px;
-  }
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 16px;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-  .profilehead{
-    display:flex;align-items:center;gap:12px;
-    padding-bottom:6px;
-  }
-  .avatar{
-    width:44px;height:44px;border-radius:50%;
-    background:var(--brand);color:#fff;
-    display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:17px;flex:none;
-  }
-  .historycart{border-left:3px solid var(--brand);padding-left:10px;}
-  .historyitem{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;padding:2px 0;}
-  .badge{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:10.5px;
-    padding:2px 7px;
-    border-radius:20px;
-    background:#EAF4EF;
-    color:var(--brand-dark);
-  }
-  .sectiontitle{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:11px;
-    color:var(--muted);
-    margin:4px 0 -2px;
-  }
-  .toast{
-    position:fixed;
-    bottom:90px;left:50%;
-    transform:translateX(-50%);
-    background:var(--ink);
-    color:#fff;
-    padding:10px 18px;
-    border-radius:20px;
-    font-size:13px;
-    z-index:50;
-    box-shadow:0 6px 20px rgba(0,0,0,0.25);
-    max-width:90%;
-    text-align:center;
-  }
-  .hidden{display:none !important;}
-  ::placeholder{color:#A7A297;}
-</style>
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.secondary {
+      background: #64748b;
+    }
+
+    button.secondary:hover {
+      background: #475569;
+    }
+
+    button.success {
+      background: #10b981;
+    }
+
+    button.success:hover {
+      background: #059669;
+    }
+
+    button.danger {
+      background: #ef4444;
+    }
+
+    button.danger:hover {
+      background: #dc2626;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn-row button {
+      flex: 1;
+    }
+
+    #businessList, #products, #cartView, #historyView {
+      margin-top: 12px;
+    }
+
+    .item-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .item-card h3 {
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+
+    .item-meta {
+      font-size: 0.9rem;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+
+    .price {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 1.1rem;
+    }
+
+    video {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      border: 3px solid #0f172a;
+      background: #000;
+      display: block;
+      margin: 0 auto 12px;
+    }
+
+    #scanResult {
+      text-align: center;
+      font-weight: 600;
+      margin: 12px 0;
+      min-height: 24px;
+    }
+
+    .total-bar {
+      background: #0f172a;
+      color: white;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      text-align: right;
+      margin-top: 12px;
+    }
+
+    .empty {
+      text-align: center;
+      color: #94a3b8;
+      padding: 20px;
+      font-style: italic;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .history-item {
+      border-left: 4px solid #10b981;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+
+    .alert {
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+
+    .alert-info {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
 
-<div id="app">
+  <h1>🛒 Customer Self Checkout</h1>
+  <p class="subtitle">Scan • Add • Purchase in seconds</p>
 
-  <!-- ============ AUTH SCREEN ============ -->
-  <div id="screen-auth" class="center-screen">
-    <div style="text-align:center;margin-bottom:6px;">
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="margin:0 auto 10px;display:block;">
-        <rect x="2" y="4" width="2" height="16" fill="#17191C"/>
-        <rect x="6" y="4" width="1" height="16" fill="#17191C"/>
-        <rect x="9" y="4" width="3" height="16" fill="#17191C"/>
-        <rect x="14" y="4" width="1" height="16" fill="#17191C"/>
-        <rect x="17" y="4" width="2" height="16" fill="#17191C"/>
-        <rect x="20" y="4" width="1" height="16" fill="#17191C"/>
-      </svg>
-      <h1 style="text-align:center;">Self Checkout</h1>
-      <p class="lede" style="text-align:center;">Scan, bag, and go. Sign in to start shopping.</p>
-    </div>
-
-    <div class="tabswitch">
-      <button type="button" id="tab-login-btn" class="active" onclick="setAuthMode('login')">Log in</button>
-      <button type="button" id="tab-register-btn" onclick="setAuthMode('register')">Register</button>
-    </div>
-
-    <!-- LOGIN -->
-    <div id="pane-login" class="stack">
-      <div class="field">
-        <label for="loginEmail">Email</label>
-        <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="loginPassword">Password</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password">
-      </div>
-      <div id="loginError" class="errormsg"></div>
-      <button type="button" class="btn-primary btn-block" id="loginBtn" onclick="login()">Log in</button>
-    </div>
-
-    <!-- REGISTER -->
-    <div id="pane-register" class="stack hidden">
-      <div class="field">
-        <label for="regName">Full name</label>
-        <input id="regName" placeholder="Jordan Lee" autocomplete="name">
-      </div>
-      <div class="field">
-        <label for="regEmail">Email</label>
-        <input id="regEmail" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="regPassword">Password</label>
-        <input id="regPassword" type="password" placeholder="At least 6 characters" autocomplete="new-password">
-      </div>
-      <div id="regError" class="errormsg"></div>
-      <button type="button" class="btn-primary btn-block" id="regBtn" onclick="register()">Create account</button>
-    </div>
+  <div class="user-bar" id="userBar">
+    <span id="userStatus">Not logged in</span>
+    <button class="secondary" style="width:auto;padding:8px 16px" onclick="logout()" id="logoutBtn" class="hidden">Logout</button>
   </div>
 
-  <!-- ============ STORE SELECT SCREEN ============ -->
-  <div id="screen-store" class="screen hidden">
-    <div class="topbar" style="padding:0;border-bottom:none;margin-bottom:6px;">
-      <div class="brandmark">
-        <div class="name">Pick a store</div>
+  <div class="grid">
+
+    <!-- AUTH -->
+    <div class="card" id="authCard">
+      <h2>🔐 Account</h2>
+      
+      <div id="registerForm">
+        <input id="regName" placeholder="Full Name">
+        <input id="regEmail" type="email" placeholder="Email">
+        <input id="regPassword" type="password" placeholder="Password">
+        <button onclick="register()">Register</button>
+        <p style="text-align:center;margin-top:12px;font-size:0.9rem">
+          Already have account? 
+          <a href="#" onclick="showLogin();return false" style="color:#3b82f6">Login</a>
+        </p>
       </div>
-      <button type="button" class="iconbtn" onclick="logout()">Log out</button>
+
+      <div id="loginForm" class="hidden">
+        <input id="loginEmail" type="email" placeholder="Email">
+        <input id="loginPassword" type="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+        <p style="text-align:center;margin-top:12px;font-size:0.9rem">
+          New user? 
+          <a href="#" onclick="showRegister();return false" style="color:#3b82f6">Register</a>
+        </p>
+      </div>
     </div>
-    <p class="lede">Search for the store you're shopping in to load its products.</p>
-    <div class="row">
-      <input id="businessSearch" placeholder="Store name" onkeydown="if(event.key==='Enter')searchBusiness()">
-      <button type="button" class="btn-outline" style="flex:0 0 auto;" onclick="searchBusiness()">Search</button>
+
+    <!-- SEARCH BUSINESS -->
+    <div class="card">
+      <h2>🏪 Select Store</h2>
+      <input id="businessSearch" placeholder="Search store name...">
+      <button onclick="searchBusiness()">Search</button>
+      <div id="businessList"></div>
+      <div id="selectedStore" class="alert alert-info hidden" style="margin-top:12px"></div>
     </div>
-    <div id="businessList" class="stack"></div>
+
+    <!-- SCANNER -->
+    <div class="card full-width">
+      <h2>📷 Barcode Scanner</h2>
+      <p style="font-size:0.9rem;color:#64748b;margin-bottom:12px">
+        Point camera at barcode. Product will be added to cart automatically.
+      </p>
+      <video id="video"></video>
+      <div class="btn-row">
+        <button onclick="startScanner()">Start Camera</button>
+        <button class="secondary" onclick="stopScanner()">Stop</button>
+      </div>
+      <div id="scanResult"></div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="card">
+      <h2>📦 Products</h2>
+      <div id="products">
+        <div class="empty">Select a store to see products</div>
+      </div>
+    </div>
+
+    <!-- CART -->
+    <div class="card">
+      <h2>🛍️ Cart</h2>
+      <button class="secondary" onclick="loadCart()" style="margin-bottom:12px">Refresh Cart</button>
+      <div id="cartView">
+        <div class="empty">Your cart is empty</div>
+      </div>
+      <button class="success" id="purchaseBtn" onclick="purchaseCart()" style="margin-top:12px;display:none">
+        ✅ Purchase (No Payment)
+      </button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="card full-width">
+      <h2>📜 Purchase History</h2>
+      <button class="secondary" onclick="loadHistory()" style="margin-bottom:12px">Refresh History</button>
+      <div id="historyView">
+        <div class="empty">No past purchases</div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- ============ DASHBOARD ============ -->
-  <div id="screen-dashboard" class="hidden" style="display:flex;flex-direction:column;flex:1;">
+  <script>
+    const SUPABASE_URL = "https://bqtibupokfrojxlnhhaf.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxdGlidXBva2Zyb2p4bG5oaGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NjE3OTIsImV4cCI6MjEwMjMzNzc5Mn0.NHNA2I7Ug3RaAi0imcJ-9hMk8htSjR1W76GmBl-WhXU";
 
-    <div class="topbar">
-      <div class="brandmark">
-        <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="2" height="16" fill="#0E7C61"/><rect x="6" y="4" width="1" height="16" fill="#0E7C61"/><rect x="9" y="4" width="3" height="16" fill="#0E7C61"/><rect x="14" y="4" width="1" height="16" fill="#0E7C61"/><rect x="17" y="4" width="2" height="16" fill="#0E7C61"/><rect x="20" y="4" width="1" height="16" fill="#0E7C61"/></svg>
-        <div>
-          <div class="name">Self Checkout</div>
-          <div class="store" id="storeLabel">No store</div>
-        </div>
-      </div>
-      <button type="button" class="iconbtn" onclick="changeStore()">Change store</button>
-    </div>
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    <!-- TAB: SHOP -->
-    <div id="tab-shop" class="screen">
-      <div class="scanbox">
-        <video id="video" class="hidden"></video>
-        <div class="scanline hidden" id="scanline"></div>
-        <div id="scanIdleMsg" style="padding:14px 0;color:var(--muted);font-size:13px;">Point your camera at a barcode</div>
-        <div class="row" style="margin-top:8px;">
-          <button type="button" class="btn-primary" id="scanToggleBtn" onclick="toggleScanner()">Start camera</button>
-        </div>
-        <div id="scanResult" class="mono" style="font-size:13px;margin-top:8px;"></div>
-      </div>
+    let user = null;
+    let selectedBusiness = null;
+    let currentCart = null;
+    let codeReader = null;
 
-      <div class="row">
-        <input id="productSearch" placeholder="Search products or paste a barcode" oninput="filterProducts()">
-      </div>
-
-      <div class="sectiontitle">PRODUCTS IN STORE</div>
-      <div id="products" class="stack"></div>
-    </div>
-
-    <!-- TAB: CART -->
-    <div id="tab-cart" class="screen hidden">
-      <h2>Your cart</h2>
-      <div id="cartView" class="card"></div>
-    </div>
-
-    <!-- TAB: PROFILE -->
-    <div id="tab-profile" class="screen hidden">
-      <div class="profilehead">
-        <div class="avatar" id="avatarInitial">?</div>
-        <div>
-          <div style="font-weight:700;font-size:15px;" id="profileName">—</div>
-          <div style="font-size:12px;color:var(--muted);" id="profileEmail">—</div>
-        </div>
-      </div>
-
-      <div class="card stack">
-        <div class="sectiontitle">UPDATE PASSWORD</div>
-        <div class="field" style="margin-bottom:0;">
-          <input id="newPassword" type="password" placeholder="New password (min 6 chars)">
-        </div>
-        <div id="pwMsg" class="errormsg"></div>
-        <button type="button" class="btn-outline btn-block" onclick="updatePassword()">Update password</button>
-      </div>
-
-      <div class="card stack">
-        <div class="sectiontitle">CUSTOMER SUPPORT</div>
-        <p class="lede" style="margin:0;">Having trouble with an order or a scan? Send us a note.</p>
-        <textarea id="supportMsg" rows="3" placeholder="Describe the issue..."></textarea>
-        <div id="supportStatus" class="okmsg"></div>
-        <button type="button" class="btn-outline btn-block" onclick="sendSupportMessage()">Send message</button>
-      </div>
-
-      <div class="stack">
-        <div class="sectiontitle">PURCHASE HISTORY</div>
-        <div id="historyView" class="stack"></div>
-      </div>
-
-      <button type="button" class="btn-danger btn-block" onclick="logout()">Log out</button>
-    </div>
-
-    <!-- BOTTOM NAV -->
-    <div class="navbar">
-      <button type="button" class="navbtn active" id="nav-shop" onclick="switchTab('shop')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7"/><path d="M9 16h6"/></svg>
-        Shop
-      </button>
-      <button type="button" class="navbtn" id="nav-cart" onclick="switchTab('cart')" style="position:relative;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M2 3h2l2.4 12.2a2 2 0 002 1.8h8.7a2 2 0 002-1.6L21 8H6"/></svg>
-        <span id="cartCountLabel">Cart</span>
-      </button>
-      <button type="button" class="navbtn" id="nav-profile" onclick="switchTab('profile')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
-        Profile
-      </button>
-    </div>
-  </div>
-
-</div>
-
-<script>
-/* =========================================================
-   CONFIG
-   ---------------------------------------------------------
-   Expected Supabase tables:
-   - business_approved (id, name, ...)
-   - products (id, business_id, name, price, stock, purchased bool,
-               purchased_by uuid, created_at)
-   - carts (id, user_id, business_id, status, created_at)
-   - cart_items (id, cart_id, product_id, quantity, price)
-   - support_messages (id, user_id, business_id, message, status,
-               created_at)  <-- create this table for the support form
-   ========================================================= */
-
-const SUPABASE_URL = "https://bqtibupokfrojxlnhhaf.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxdGlidXBva2Zyb2p4bG5oaGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NjE3OTIsImV4cCI6MjEwMjMzNzc5Mn0.NHNA2I7Ug3RaAi0imcJ-9hMk8htSjR1W76GmBl-WhXU";
-
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let user = null;
-let selectedBusiness = null;
-let currentCart = null;
-let codeReader = null;
-let scanning = false;
-let allProducts = [];
-
-/* =========================================================
-   BOOT
-   ========================================================= */
-(async function boot(){
-  const { data } = await db.auth.getSession();
-  if (data.session) {
-    user = data.session.user;
-    const savedBiz = localStorage.getItem("sc_business");
-    if (savedBiz) {
-      selectedBusiness = JSON.parse(savedBiz);
-      showDashboard();
-    } else {
-      showScreen("store");
+    // ========== AUTH ==========
+    function showLogin() {
+      document.getElementById('registerForm').classList.add('hidden');
+      document.getElementById('loginForm').classList.remove('hidden');
     }
-  } else {
-    showScreen("auth");
-  }
-})();
 
-/* =========================================================
-   SCREEN / TAB HELPERS
-   ========================================================= */
-function showScreen(name){
-  document.getElementById("screen-auth").classList.toggle("hidden", name !== "auth");
-  document.getElementById("screen-store").classList.toggle("hidden", name !== "store");
-  document.getElementById("screen-dashboard").classList.toggle("hidden", name !== "dashboard");
-}
+    function showRegister() {
+      document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('registerForm').classList.remove('hidden');
+    }
 
-function showDashboard(){
-  document.getElementById("storeLabel").textContent = selectedBusiness.name;
-  showScreen("dashboard");
-  switchTab("shop");
-  loadProducts();
-  refreshProfileHeader();
-}
+    async function register() {
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
 
-function switchTab(name){
-  ["shop","cart","profile"].forEach(t=>{
-    document.getElementById("tab-"+t).classList.toggle("hidden", t !== name);
-    document.getElementById("nav-"+t).classList.toggle("active", t === name);
-  });
-  if (name === "cart") loadCart();
-  if (name === "profile") { refreshProfileHeader(); loadHistory(); }
-}
+      if (!name || !email || !password) {
+        alert('Please fill all fields');
+        return;
+      }
 
-function setAuthMode(mode){
-  document.getElementById("pane-login").classList.toggle("hidden", mode !== "login");
-  document.getElementById("pane-register").classList.toggle("hidden", mode !== "register");
-  document.getElementById("tab-login-btn").classList.toggle("active", mode === "login");
-  document.getElementById("tab-register-btn").classList.toggle("active", mode === "register");
-}
+      const { error } = await db.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } }
+      });
 
-function toast(msg){
-  const t = document.createElement("div");
-  t.className = "toast";
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2200);
-}
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      alert('Registration successful! Please login.');
+      showLogin();
+    }
 
-/* =========================================================
-   AUTH
-   ========================================================= */
-async function register(){
-  const name = document.getElementById("regName").value.trim();
-  const email = document.getElementById("regEmail").value.trim();
-  const password = document.getElementById("regPassword").value;
-  const errEl = document.getElementById("regError");
-  errEl.textContent = "";
+    async function login() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
 
-  if (!name || !email || !password) { errEl.textContent = "Fill in all fields."; return; }
-  if (password.length < 6) { errEl.textContent = "Password must be at least 6 characters."; return; }
+      if (!email || !password) {
+        alert('Please enter email and password');
+        return;
+      }
 
-  const btn = document.getElementById("regBtn");
-  btn.disabled = true; btn.textContent = "Creating account...";
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
 
-  const { data, error } = await db.auth.signUp({
-    email, password,
-    options: { data: { full_name: name } }
-  });
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-  btn.disabled = false; btn.textContent = "Create account";
+      user = data.user;
+      updateUserBar();
+      document.getElementById('authCard').classList.add('hidden');
+      alert('Login successful!');
+    }
 
-  if (error) { errEl.textContent = error.message; return; }
-
-  if (data.session) {
-    user = data.session.user;
-    showScreen("store");
-    toast("Welcome, " + name.split(" ")[0] + "!");
-  } else {
-    toast("Check your email to confirm your account, then log in.");
-    setAuthMode("login");
-  }
-}
-
-async function login(){
-  const email = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPassword").value;
-  const errEl = document.getElementById("loginError");
-  errEl.textContent = "";
-  if (!email || !password) { errEl.textContent = "Enter your email and password."; return; }
-
-  const btn = document.getElementById("loginBtn");
-  btn.disabled = true; btn.textContent = "Logging in...";
-
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
-
-  btn.disabled = false; btn.textContent = "Log in";
-
-  if (error) { errEl.textContent = error.message; return; }
-
-  user = data.user;
-  const savedBiz = localStorage.getItem("sc_business");
-  if (savedBiz) {
-    selectedBusiness = JSON.parse(savedBiz);
-    showDashboard();
-  } else {
-    showScreen("store");
-  }
-}
-
-async function logout(){
-  await db.auth.signOut();
-  user = null;
-  selectedBusiness = null;
-  currentCart = null;
-  localStorage.removeItem("sc_business");
-  stopScanner();
-  showScreen("auth");
-  setAuthMode("login");
-}
-
-/* =========================================================
-   STORE SELECTION
-   ========================================================= */
-async function searchBusiness(){
-  const text = document.getElementById("businessSearch").value.trim();
-  const listEl = document.getElementById("businessList");
-  listEl.innerHTML = "<p class='empty'>Searching...</p>";
-
-  const { data, error } = await db
-    .from("business_approved")
-    .select("*")
-    .ilike("name", "%" + text + "%")
-    .limit(20);
-
-  if (error) { listEl.innerHTML = "<p class='errormsg'>"+escapeHtml(error.message)+"</p>"; return; }
-
-  if (!data || data.length === 0) {
-    listEl.innerHTML = "<p class='empty'>No stores matched that name.</p>";
-    return;
-  }
-
-  listEl.innerHTML = "";
-  data.forEach(b=>{
-    const row = document.createElement("div");
-    row.className = "card storepick";
-    row.innerHTML = `
-      <div class="info">
-        <b>${escapeHtml(b.name)}</b>
-        <span>Store ID ${escapeHtml(String(b.id))}</span>
-      </div>
-      <button type="button" class="btn-primary">Open</button>
-    `;
-    row.querySelector("button").onclick = ()=>selectBusiness(b);
-    listEl.appendChild(row);
-  });
-}
-
-function selectBusiness(b){
-  selectedBusiness = b;
-  localStorage.setItem("sc_business", JSON.stringify(b));
-  toast("Shopping at " + b.name);
-  showDashboard();
-}
-
-function changeStore(){
-  stopScanner();
-  currentCart = null;
-  showScreen("store");
-  document.getElementById("businessSearch").value = "";
-  document.getElementById("businessList").innerHTML = "";
-}
-
-/* =========================================================
-   PRODUCTS
-   ========================================================= */
-async function loadProducts(){
-  if (!selectedBusiness) return;
-  const grid = document.getElementById("products");
-  grid.innerHTML = "<p class='empty'>Loading products...</p>";
-
-  const { data, error } = await db
-    .from("products")
-    .select("*")
-    .eq("business_id", selectedBusiness.id)
-    .eq("purchased", false)
-    .order("name", { ascending: true });
-
-  if (error) { grid.innerHTML = "<p class='errormsg'>"+escapeHtml(error.message)+"</p>"; return; }
-
-  allProducts = data || [];
-  renderProducts(allProducts);
-}
-
-function filterProducts(){
-  const q = document.getElementById("productSearch").value.trim().toLowerCase();
-  if (!q) { renderProducts(allProducts); return; }
-  const filtered = allProducts.filter(p =>
-    String(p.id).toLowerCase().includes(q) ||
-    (p.name || "").toLowerCase().includes(q)
-  );
-  renderProducts(filtered);
-}
-
-function renderProducts(list){
-  const grid = document.getElementById("products");
-  if (!list || list.length === 0) {
-    grid.innerHTML = "<p class='empty'>No products available right now.</p>";
-    return;
-  }
-  grid.innerHTML = "";
-  list.forEach(p=>{
-    const card = document.createElement("div");
-    card.className = "card productcard";
-    const outOfStock = p.stock <= 0;
-    card.innerHTML = `
-      <div>
-        <div class="pname">${escapeHtml(p.name)}</div>
-        <div class="productmeta">Barcode ${escapeHtml(String(p.id))} &nbsp;·&nbsp; Stock ${escapeHtml(String(p.stock))}</div>
-      </div>
-      <div style="text-align:right;">
-        <div class="price-tag">₹${Number(p.price).toFixed(2)}</div>
-        <button type="button" class="addbtn" ${outOfStock ? "disabled" : ""}>${outOfStock ? "Sold out" : "Add"}</button>
-      </div>
-    `;
-    const btn = card.querySelector("button");
-    if (!outOfStock) btn.onclick = ()=>addToCart(p.id);
-    grid.appendChild(card);
-  });
-}
-
-/* =========================================================
-   SCANNER
-   ========================================================= */
-function toggleScanner(){
-  if (scanning) { stopScanner(); } else { startScanner(); }
-}
-
-function startScanner(){
-  if (!selectedBusiness) { toast("Select a store first."); return; }
-
-  document.getElementById("video").classList.remove("hidden");
-  document.getElementById("scanline").classList.remove("hidden");
-  document.getElementById("scanIdleMsg").classList.add("hidden");
-  document.getElementById("scanToggleBtn").textContent = "Stop camera";
-  scanning = true;
-
-  codeReader = new ZXing.BrowserMultiFormatReader();
-  codeReader.decodeFromVideoDevice(null, "video", (result, err) => {
-    if (result) {
-      const barcode = result.text;
-      document.getElementById("scanResult").textContent = "Scanned: " + barcode;
+    async function logout() {
+      await db.auth.signOut();
+      user = null;
+      selectedBusiness = null;
+      currentCart = null;
+      updateUserBar();
+      document.getElementById('authCard').classList.remove('hidden');
+      document.getElementById('selectedStore').classList.add('hidden');
+      document.getElementById('products').innerHTML = '<div class="empty">Select a store to see products</div>';
+      document.getElementById('cartView').innerHTML = '<div class="empty">Your cart is empty</div>';
+      document.getElementById('purchaseBtn').style.display = 'none';
+      document.getElementById('historyView').innerHTML = '<div class="empty">No past purchases</div>';
       stopScanner();
-      findProductByBarcode(barcode);
-    }
-  }).catch(err=>{
-    toast("Camera error: " + err.message);
-    stopScanner();
-  });
-}
-
-function stopScanner(){
-  if (codeReader) { try { codeReader.reset(); } catch(e){} }
-  scanning = false;
-  document.getElementById("video").classList.add("hidden");
-  document.getElementById("scanline").classList.add("hidden");
-  document.getElementById("scanIdleMsg").classList.remove("hidden");
-  document.getElementById("scanToggleBtn").textContent = "Start camera";
-}
-
-async function findProductByBarcode(barcode){
-  const { data, error } = await db
-    .from("products")
-    .select("*")
-    .eq("id", barcode)
-    .eq("business_id", selectedBusiness.id)
-    .eq("purchased", false)
-    .maybeSingle();
-
-  if (error || !data) {
-    document.getElementById("scanResult").innerHTML =
-      "Scanned: " + escapeHtml(barcode) + " — not available in this store.";
-    return;
-  }
-
-  document.getElementById("scanResult").innerHTML = `
-    Found <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)}
-    <button type="button" class="addbtn" style="margin-left:8px;" onclick="addToCart(${data.id})">Add</button>
-  `;
-}
-
-/* =========================================================
-   CART
-   ========================================================= */
-async function ensureCart(){
-  if (!user) { toast("Log in first."); return null; }
-  if (!selectedBusiness) { toast("Select a store first."); return null; }
-
-  const { data, error } = await db
-    .from("carts")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("business_id", selectedBusiness.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (error) { toast(error.message); return null; }
-  if (data) { currentCart = data; return data; }
-
-  const result = await db
-    .from("carts")
-    .insert({ user_id: user.id, business_id: selectedBusiness.id, status: "active" })
-    .select()
-    .single();
-
-  if (result.error) { toast(result.error.message); return null; }
-  currentCart = result.data;
-  return currentCart;
-}
-
-async function addToCart(productId){
-  const cart = await ensureCart();
-  if (!cart) return;
-
-  // Re-check product is still available and in stock.
-  const { data: product, error: pError } = await db
-    .from("products")
-    .select("id, price, purchased, stock")
-    .eq("id", productId)
-    .eq("business_id", selectedBusiness.id)
-    .single();
-
-  if (pError || !product) { toast("Product not found."); return; }
-  if (product.purchased === true) {
-    toast("That product has already been purchased.");
-    await loadProducts();
-    return;
-  }
-  if (product.stock <= 0) { toast("Product is out of stock."); return; }
-
-  // If it's already in the cart, bump the quantity instead of duplicating the row.
-  const { data: existing, error: exError } = await db
-    .from("cart_items")
-    .select("*")
-    .eq("cart_id", cart.id)
-    .eq("product_id", productId)
-    .maybeSingle();
-
-  if (exError) { toast(exError.message); return; }
-
-  if (existing) {
-    const { error } = await db
-      .from("cart_items")
-      .update({ quantity: existing.quantity + 1 })
-      .eq("id", existing.id);
-    if (error) { toast(error.message); return; }
-  } else {
-    const { error } = await db
-      .from("cart_items")
-      .insert({ cart_id: cart.id, product_id: productId, quantity: 1, price: product.price });
-    if (error) { toast(error.message); return; }
-  }
-
-  toast("Added to cart");
-  updateCartCountBadge();
-}
-
-async function loadCart(){
-  const view = document.getElementById("cartView");
-  view.innerHTML = "<p class='empty'>Loading cart...</p>";
-
-  if (!user || !selectedBusiness) { view.innerHTML = "<p class='empty'>Your cart is empty.</p>"; return; }
-
-  const cart = await ensureCart();
-  if (!cart) { view.innerHTML = "<p class='empty'>Your cart is empty.</p>"; return; }
-
-  const { data, error } = await db
-    .from("cart_items")
-    .select(`id, product_id, quantity, price, products(name, stock)`)
-    .eq("cart_id", cart.id)
-    .order("id", { ascending: true });
-
-  if (error) { view.innerHTML = "<p class='errormsg'>"+escapeHtml(error.message)+"</p>"; return; }
-
-  if (!data || data.length === 0) {
-    view.innerHTML = "<p class='empty'>Your cart is empty. Go scan or add a product.</p>";
-    updateCartCountBadge(0);
-    return;
-  }
-
-  let total = 0;
-  let html = "";
-  data.forEach(item=>{
-    const amount = item.price * item.quantity;
-    total += amount;
-    html += `
-      <div class="cartrow">
-        <div>
-          <div class="name">${escapeHtml(item.products ? item.products.name : "Item")}</div>
-          <div class="productmeta">₹${Number(item.price).toFixed(2)} each</div>
-        </div>
-        <div class="qtybox">
-          <button type="button" class="qtybtn" onclick="changeQty(${item.id}, ${item.quantity - 1})">−</button>
-          <span>${item.quantity}</span>
-          <button type="button" class="qtybtn" onclick="changeQty(${item.id}, ${item.quantity + 1})">+</button>
-        </div>
-        <div class="price-tag">₹${amount.toFixed(2)}</div>
-      </div>
-    `;
-  });
-
-  html += `<div class="totalline"><span>Total</span><span>₹${total.toFixed(2)}</span></div>`;
-  html += `<button type="button" class="btn-primary btn-block" style="margin-top:14px;" onclick="checkout()">Checkout · Buy now</button>`;
-
-  view.innerHTML = html;
-  updateCartCountBadge(data.reduce((s,i)=>s+i.quantity,0));
-}
-
-async function changeQty(itemId, newQty){
-  if (newQty <= 0) {
-    const { error } = await db.from("cart_items").delete().eq("id", itemId);
-    if (error) { toast(error.message); return; }
-  } else {
-    const { error } = await db.from("cart_items").update({ quantity: newQty }).eq("id", itemId);
-    if (error) { toast(error.message); return; }
-  }
-  loadCart();
-}
-
-function updateCartCountBadge(count){
-  const label = document.getElementById("cartCountLabel");
-  if (count === undefined) { label.textContent = "Cart"; return; }
-  label.textContent = count > 0 ? `Cart (${count})` : "Cart";
-}
-
-/* =========================================================
-   CHECKOUT
-   ========================================================= */
-async function checkout(){
-  if (!user || !currentCart) { toast("Cart not found."); return; }
-
-  const { data: cartItems, error: cartError } = await db
-    .from("cart_items")
-    .select("id, product_id, quantity, price")
-    .eq("cart_id", currentCart.id);
-
-  if (cartError) { toast(cartError.message); return; }
-  if (!cartItems || cartItems.length === 0) { toast("Cart is empty."); return; }
-
-  if (!confirm("No payment is collected in this demo. Complete the purchase?")) return;
-
-  for (const item of cartItems) {
-    const { data: product, error: productError } = await db
-      .from("products")
-      .select("id, purchased, stock")
-      .eq("id", item.product_id)
-      .single();
-
-    if (productError || !product) { toast("A product in your cart no longer exists."); return; }
-
-    if (product.purchased === true) {
-      toast("A product in your cart was already purchased by someone else.");
-      await loadProducts();
-      await loadCart();
-      return;
     }
 
-    const { error: updateError } = await db
-      .from("products")
-      .update({ purchased: true, purchased_by: user.id })
-      .eq("id", item.product_id)
-      .eq("business_id", selectedBusiness.id)
-      .eq("purchased", false);
+    function updateUserBar() {
+      const status = document.getElementById('userStatus');
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (user) {
+        status.textContent = `Logged in as ${user.email}`;
+        logoutBtn.classList.remove('hidden');
+      } else {
+        status.textContent = 'Not logged in';
+        logoutBtn.classList.add('hidden');
+      }
+    }
 
-    if (updateError) { toast(updateError.message); return; }
-  }
+    // ========== BUSINESS ==========
+    async function searchBusiness() {
+      const text = document.getElementById('businessSearch').value.trim();
+      if (!text) {
+        alert('Enter a store name');
+        return;
+      }
 
-  const { error: cartUpdateError } = await db
-    .from("carts")
-    .update({ status: "completed" })
-    .eq("id", currentCart.id);
+      const { data, error } = await db
+        .from('business_approved')
+        .select('*')
+        .ilike('name', `%${text}%`);
 
-  if (cartUpdateError) { toast(cartUpdateError.message); return; }
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-  toast("Purchase complete!");
-  currentCart = null;
-  document.getElementById("cartView").innerHTML = "<p class='empty'>Purchase completed. Thanks for shopping!</p>";
-  updateCartCountBadge(0);
-  await loadProducts();
-}
+      if (!data || data.length === 0) {
+        document.getElementById('businessList').innerHTML = '<div class="empty">No stores found</div>';
+        return;
+      }
 
-/* =========================================================
-   PROFILE
-   ========================================================= */
-function refreshProfileHeader(){
-  if (!user) return;
-  const name = (user.user_metadata && user.user_metadata.full_name) || user.email;
-  document.getElementById("profileName").textContent = name;
-  document.getElementById("profileEmail").textContent = user.email;
-  document.getElementById("avatarInitial").textContent = name.charAt(0).toUpperCase();
-}
+      let html = '';
+      data.forEach(b => {
+        html += `
+          <div class="item-card">
+            <h3>${b.name}</h3>
+            <button onclick='selectBusiness(${JSON.stringify(b)})'>Open Store</button>
+          </div>`;
+      });
+      document.getElementById('businessList').innerHTML = html;
+    }
 
-async function updatePassword(){
-  const pw = document.getElementById("newPassword").value;
-  const msgEl = document.getElementById("pwMsg");
-  msgEl.textContent = "";
-  msgEl.className = "errormsg";
+    function selectBusiness(b) {
+      selectedBusiness = b;
+      currentCart = null;
 
-  if (!pw || pw.length < 6) { msgEl.textContent = "Password must be at least 6 characters."; return; }
+      const el = document.getElementById('selectedStore');
+      el.classList.remove('hidden');
+      el.innerHTML = `Selected store: <strong>${b.name}</strong>`;
 
-  const { error } = await db.auth.updateUser({ password: pw });
-  if (error) { msgEl.textContent = error.message; return; }
+      loadProducts();
+      loadCart();
+    }
 
-  msgEl.className = "okmsg";
-  msgEl.textContent = "Password updated.";
-  document.getElementById("newPassword").value = "";
-}
+    // ========== PRODUCTS ==========
+    async function loadProducts() {
+      if (!selectedBusiness) return;
 
-async function sendSupportMessage(){
-  const msg = document.getElementById("supportMsg").value.trim();
-  const statusEl = document.getElementById("supportStatus");
-  statusEl.className = "errormsg";
-  statusEl.textContent = "";
+      const { data, error } = await db
+        .from('products')
+        .select('*')
+        .eq('business_id', selectedBusiness.id);
 
-  if (!msg) { statusEl.textContent = "Write a message first."; return; }
-  if (!user) { statusEl.textContent = "Log in first."; return; }
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-  const { error } = await db.from("support_messages").insert({
-    user_id: user.id,
-    business_id: selectedBusiness ? selectedBusiness.id : null,
-    message: msg,
-    status: "open"
-  });
+      if (!data || data.length === 0) {
+        document.getElementById('products').innerHTML = '<div class="empty">No products in this store</div>';
+        return;
+      }
 
-  if (error) { statusEl.textContent = error.message; return; }
+      let html = '';
+      data.forEach(p => {
+        html += `
+          <div class="item-card">
+            <h3>${p.name}</h3>
+            <div class="item-meta">
+              Barcode: ${p.id} · Stock: ${p.stock}
+            </div>
+            <div class="price">₹${p.price}</div>
+            <button onclick="addToCart(${p.id})" style="margin-top:10px">Add to Cart</button>
+          </div>`;
+      });
+      document.getElementById('products').innerHTML = html;
+    }
 
-  statusEl.className = "okmsg";
-  statusEl.textContent = "Sent — support will follow up by email.";
-  document.getElementById("supportMsg").value = "";
-}
+    // ========== SCANNER ==========
+    function startScanner() {
+      if (!selectedBusiness) {
+        alert('Please select a store first');
+        return;
+      }
+      if (!user) {
+        alert('Please login first');
+        return;
+      }
 
-async function loadHistory(){
-  const view = document.getElementById("historyView");
-  view.innerHTML = "<p class='empty'>Loading history...</p>";
-  if (!user) { view.innerHTML = "<p class='empty'>Log in to see your purchase history.</p>"; return; }
+      if (codeReader) {
+        codeReader.reset();
+      }
 
-  const { data: carts, error } = await db
-    .from("carts")
-    .select("id, business_id, created_at, status")
-    .eq("user_id", user.id)
-    .eq("status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(20);
+      codeReader = new ZXing.BrowserMultiFormatReader();
 
-  if (error) { view.innerHTML = "<p class='errormsg'>"+escapeHtml(error.message)+"</p>"; return; }
-  if (!carts || carts.length === 0) { view.innerHTML = "<p class='empty'>No completed purchases yet.</p>"; return; }
+      codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+        if (result) {
+          const barcode = result.text;
+          document.getElementById('scanResult').innerHTML = `Scanned: <span class="badge">${barcode}</span>`;
+          codeReader.reset();
+          findAndAddProduct(barcode);
+        }
+      });
+    }
 
-  view.innerHTML = "";
-  for (const c of carts) {
-    const { data: items } = await db
-      .from("cart_items")
-      .select("quantity, price, products(name)")
-      .eq("cart_id", c.id);
+    function stopScanner() {
+      if (codeReader) {
+        codeReader.reset();
+        codeReader = null;
+      }
+      document.getElementById('scanResult').innerHTML = '';
+    }
 
-    const total = (items || []).reduce((s,i)=>s + i.price * i.quantity, 0);
-    const date = new Date(c.created_at).toLocaleString();
+    async function findAndAddProduct(barcode) {
+      const { data, error } = await db
+        .from('products')
+        .select('*')
+        .eq('id', barcode)
+        .eq('business_id', selectedBusiness.id)
+        .single();
 
-    const block = document.createElement("div");
-    block.className = "card historycart";
-    let itemsHtml = (items || []).map(i =>
-      `<div class="historyitem"><span>${escapeHtml(i.products ? i.products.name : "Item")} × ${i.quantity}</span><span>₹${(i.price*i.quantity).toFixed(2)}</span></div>`
-    ).join("");
+      if (error || !data) {
+        document.getElementById('scanResult').innerHTML = `<span style="color:#ef4444">Product not found</span>`;
+        return;
+      }
 
-    block.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span class="mono" style="font-size:11.5px;color:var(--muted);">${escapeHtml(date)}</span>
-        <span class="badge">Completed</span>
-      </div>
-      ${itemsHtml}
-      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);">
-        <span>Total</span><span>₹${total.toFixed(2)}</span>
-      </div>
-    `;
-    view.appendChild(block);
-  }
-}
+      document.getElementById('scanResult').innerHTML = `
+        Found: <strong>${data.name}</strong> · ₹${data.price}<br>
+        <span style="color:#10b981">Adding to cart...</span>`;
 
-/* =========================================================
-   UTIL
-   ========================================================= */
-function escapeHtml(str){
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-</script>
+      await addToCart(data.id);
+    }
+
+    // ========== CART ==========
+    async function createCart() {
+      if (!user || !selectedBusiness) return null;
+
+      // Check existing active cart
+      let { data } = await db
+        .from('carts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('business_id', selectedBusiness.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (data) {
+        currentCart = data;
+        return data;
+      }
+
+      // Create new
+      const result = await db
+        .from('carts')
+        .insert({
+          user_id: user.id,
+          business_id: selectedBusiness.id,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (result.error) {
+        alert(result.error.message);
+        return null;
+      }
+
+      currentCart = result.data;
+      return currentCart;
+    }
+
+    async function addToCart(productId) {
+      if (!user) {
+        alert('Please login first');
+        return;
+      }
+      if (!selectedBusiness) {
+        alert('Please select a store first');
+        return;
+      }
+
+      await createCart();
+      if (!currentCart) return;
+
+      // Get product price
+      const { data: product, error: pError } = await db
+        .from('products')
+        .select('price, name')
+        .eq('id', productId)
+        .single();
+
+      if (pError) {
+        alert(pError.message);
+        return;
+      }
+
+      // Check if already in cart
+      const { data: existing } = await db
+        .from('cart_items')
+        .select('*')
+        .eq('cart_id', currentCart.id)
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (existing) {
+        // Increment quantity
+        const { error } = await db
+          .from('cart_items')
+          .update({ quantity: existing.quantity + 1 })
+          .eq('id', existing.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+      } else {
+        // Insert new
+        const { error } = await db
+          .from('cart_items')
+          .insert({
+            cart_id: currentCart.id,
+            product_id: productId,
+            quantity: 1,
+            price: product.price
+          });
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+      }
+
+      document.getElementById('scanResult').innerHTML = `
+        <span style="color:#10b981">✓ ${product.name} added to cart</span>`;
+      
+      loadCart();
+    }
+
+    async function loadCart() {
+      if (!user || !selectedBusiness) {
+        document.getElementById('cartView').innerHTML = '<div class="empty">Login and select store</div>';
+        document.getElementById('purchaseBtn').style.display = 'none';
+        return;
+      }
+
+      await createCart();
+      if (!currentCart) return;
+
+      const { data, error } = await db
+        .from('cart_items')
+        .select(`
+          id,
+          quantity,
+          price,
+          products (name)
+        `)
+        .eq('cart_id', currentCart.id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        document.getElementById('cartView').innerHTML = '<div class="empty">Your cart is empty</div>';
+        document.getElementById('purchaseBtn').style.display = 'none';
+        return;
+      }
+
+      let html = '';
+      let total = 0;
+
+      data.forEach(item => {
+        const amount = item.price * item.quantity;
+        total += amount;
+        html += `
+          <div class="item-card">
+            <h3>${item.products.name}</h3>
+            <div class="item-meta">
+              Qty: ${item.quantity} × ₹${item.price}
+            </div>
+            <div class="price">₹${amount}</div>
+          </div>`;
+      });
+
+      html += `<div class="total-bar">Total: ₹${total}</div>`;
+      document.getElementById('cartView').innerHTML = html;
+      document.getElementById('purchaseBtn').style.display = 'block';
+    }
+
+    // ========== PURCHASE ==========
+    async function purchaseCart() {
+      if (!currentCart) return;
+
+      if (!confirm('Confirm purchase? (No payment required)')) return;
+
+      // Mark cart as completed
+      const { error } = await db
+        .from('carts')
+        .update({ status: 'completed' })
+        .eq('id', currentCart.id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      alert('Purchase successful! Items moved to history.');
+      
+      currentCart = null;
+      document.getElementById('cartView').innerHTML = '<div class="empty">Your cart is empty</div>';
+      document.getElementById('purchaseBtn').style.display = 'none';
+      loadHistory();
+    }
+
+    // ========== HISTORY ==========
+    async function loadHistory() {
+      if (!user) {
+        document.getElementById('historyView').innerHTML = '<div class="empty">Login to see history</div>';
+        return;
+      }
+
+      const { data: carts, error } = await db
+        .from('carts')
+        .select(`
+          id,
+          created_at,
+          business_id,
+          cart_items (
+            quantity,
+            price,
+            products (name)
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (!carts || carts.length === 0) {
+        document.getElementById('historyView').innerHTML = '<div class="empty">No past purchases yet</div>';
+        return;
+      }
+
+      let html = '';
+      carts.forEach(cart => {
+        let cartTotal = 0;
+        let itemsHtml = '';
+
+        (cart.cart_items || []).forEach(item => {
+          const amount = item.price * item.quantity;
+          cartTotal += amount;
+          itemsHtml += `
+            <div style="margin:4px 0">
+              ${item.products?.name || 'Item'} × ${item.quantity} — ₹${amount}
+            </div>`;
+        });
+
+        const date = new Date(cart.created_at).toLocaleString();
+        html += `
+          <div class="history-item">
+            <div style="font-weight:600;margin-bottom:6px">
+              ${date} · <span class="badge">Completed</span>
+            </div>
+            ${itemsHtml}
+            <div style="font-weight:700;margin-top:6px">Total: ₹${cartTotal}</div>
+          </div>`;
+      });
+
+      document.getElementById('historyView').innerHTML = html;
+    }
+
+    // Check session on load
+    (async () => {
+      const { data: { session } } = await db.auth.getSession();
+      if (session) {
+        user = session.user;
+        updateUserBar();
+        document.getElementById('authCard').classList.add('hidden');
+        loadHistory();
+      }
+    })();
+  </script>
 </body>
-</html> 
+</html>
