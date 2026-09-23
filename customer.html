@@ -814,7 +814,8 @@ function stopScanner(){
   document.getElementById("scanToggleBtn").textContent = "Start camera";
 }
 
-async function findProductByBarcode(barcode){
+async function findProductByBarcode(rawBarcode){
+  const barcode = String(rawBarcode).trim();
   const { data, error } = await db
     .from("products")
     .select("*")
@@ -823,7 +824,15 @@ async function findProductByBarcode(barcode){
     .eq("purchased", false)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    console.error("findProductByBarcode query error:", error);
+    document.getElementById("scanResult").innerHTML =
+      "Scanned: " + escapeHtml(barcode) + " — lookup failed: " + escapeHtml(error.message);
+    toast("Lookup failed: " + error.message);
+    return;
+  }
+
+  if (!data) {
     document.getElementById("scanResult").innerHTML =
       "Scanned: " + escapeHtml(barcode) + " — not available in this store.";
     return;
@@ -836,9 +845,14 @@ async function findProductByBarcode(barcode){
   }
 
   document.getElementById("scanResult").innerHTML = `
-    Added <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)} to your cart.
+    Adding <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)} to your cart...
   `;
-  await addToCart(data.id);
+  const added = await addToCart(data.id);
+  if (added) {
+    document.getElementById("scanResult").innerHTML = `
+      Added <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)} to your cart.
+    `;
+  }
 }
 
 /* =========================================================
@@ -872,7 +886,7 @@ async function ensureCart(){
 
 async function addToCart(productId){
   const cart = await ensureCart();
-  if (!cart) return;
+  if (!cart) { console.error("addToCart: could not get/create a cart"); return false; }
 
   // Re-check product is still available and in stock.
   const { data: product, error: pError } = await db
@@ -882,13 +896,17 @@ async function addToCart(productId){
     .eq("business_id", selectedBusiness.id)
     .single();
 
-  if (pError || !product) { toast("Product not found."); return; }
+  if (pError || !product) {
+    console.error("addToCart: product re-check failed", pError);
+    toast(pError ? ("Product lookup failed: " + pError.message) : "Product not found.");
+    return false;
+  }
   if (product.purchased === true) {
     toast("That product has already been purchased.");
     await loadProducts();
-    return;
+    return false;
   }
-  if (product.stock <= 0) { toast("Product is out of stock."); return; }
+  if (product.stock <= 0) { toast("Product is out of stock."); return false; }
 
   // If it's already in the cart, bump the quantity instead of duplicating the row.
   const { data: existing, error: exError } = await db
@@ -898,19 +916,31 @@ async function addToCart(productId){
     .eq("product_id", productId)
     .maybeSingle();
 
-  if (exError) { toast(exError.message); return; }
+  if (exError) {
+    console.error("addToCart: cart_items lookup failed", exError);
+    toast("Cart lookup failed: " + exError.message);
+    return false;
+  }
 
   if (existing) {
     const { error } = await db
       .from("cart_items")
       .update({ quantity: existing.quantity + 1 })
       .eq("id", existing.id);
-    if (error) { toast(error.message); return; }
+    if (error) {
+      console.error("addToCart: quantity update failed", error);
+      toast("Couldn't update quantity: " + error.message);
+      return false;
+    }
   } else {
     const { error } = await db
       .from("cart_items")
       .insert({ cart_id: cart.id, product_id: productId, quantity: 1, price: product.price });
-    if (error) { toast(error.message); return; }
+    if (error) {
+      console.error("addToCart: insert failed", error);
+      toast("Couldn't add to cart: " + error.message);
+      return false;
+    }
   }
 
   toast("Added to cart");
@@ -918,6 +948,7 @@ async function addToCart(productId){
   if (!document.getElementById("tab-cart").classList.contains("hidden")) {
     loadCart();
   }
+  return true;
 }
 
 async function loadCart(){
