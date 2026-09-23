@@ -70,7 +70,7 @@
     flex:1;
     display:flex;
     flex-direction:column;
-    padding:20px;
+    padding:20px 20px 104px;
     gap:14px;
   }
   .center-screen{
@@ -165,6 +165,15 @@
     display:flex;
     border-top:2px dashed var(--line);
     background:var(--card);
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    max-width:480px;
+    margin:0 auto;
+    z-index:40;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    box-shadow:0 -6px 20px rgba(0,0,0,0.05);
   }
   .navbtn{
     flex:1;
@@ -820,10 +829,16 @@ async function findProductByBarcode(barcode){
     return;
   }
 
+  if (data.stock <= 0) {
+    document.getElementById("scanResult").innerHTML =
+      "Scanned <b>" + escapeHtml(data.name) + "</b> — out of stock.";
+    return;
+  }
+
   document.getElementById("scanResult").innerHTML = `
-    Found <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)}
-    <button type="button" class="addbtn" style="margin-left:8px;" onclick="addToCart(${data.id})">Add</button>
+    Added <b>${escapeHtml(data.name)}</b> — ₹${Number(data.price).toFixed(2)} to your cart.
   `;
+  await addToCart(data.id);
 }
 
 /* =========================================================
@@ -900,6 +915,9 @@ async function addToCart(productId){
 
   toast("Added to cart");
   updateCartCountBadge();
+  if (!document.getElementById("tab-cart").classList.contains("hidden")) {
+    loadCart();
+  }
 }
 
 async function loadCart(){
@@ -1134,4 +1152,4 @@ function escapeHtml(str){
 }
 </script>
 </body>
-</html> 
+</html>
