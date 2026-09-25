@@ -227,6 +227,16 @@
     white-space:nowrap;
   }
   .addbtn:disabled{background:#c9c4b6;cursor:not-allowed;}
+  .scanhint{
+    background:transparent;
+    color:var(--muted);
+    padding:8px 12px;
+    font-size:11.5px;
+    border-radius:7px;
+    white-space:nowrap;
+    border:1.5px dashed var(--line-strong);
+    font-family:'IBM Plex Mono',monospace;
+  }
 
   .scanbox{
     border:2px dashed var(--line-strong);
@@ -456,7 +466,7 @@
         <input id="productSearch" placeholder="Search products or paste a barcode" oninput="filterProducts()">
       </div>
 
-      <div class="sectiontitle">PRODUCTS IN STORE</div>
+      <div class="sectiontitle">PRODUCTS IN STORE · SCAN TO ADD</div>
       <div id="products" class="stack"></div>
     </div>
 
@@ -846,6 +856,8 @@ function filterProducts(){
   renderProducts(filtered);
 }
 
+// Product list is browse-only now — items can only be added to the cart
+// by scanning their barcode (see findProductByBarcode / addToCart below).
 function renderProducts(list){
   const grid = document.getElementById("products");
   if (!list || list.length === 0) {
@@ -864,11 +876,9 @@ function renderProducts(list){
       </div>
       <div style="text-align:right;">
         <div class="price-tag">₹${Number(p.price).toFixed(2)}</div>
-        <button type="button" class="addbtn" ${outOfStock ? "disabled" : ""}>${outOfStock ? "Sold out" : "Add"}</button>
+        <span class="scanhint">${outOfStock ? "Sold out" : "Scan to add"}</span>
       </div>
     `;
-    const btn = card.querySelector("button");
-    if (!outOfStock) btn.onclick = ()=>addToCart(p.id);
     grid.appendChild(card);
   });
 }
@@ -1027,7 +1037,7 @@ async function loadCart(){
   if (error) { view.innerHTML = "<p class='errormsg'>"+escapeHtml(error.message)+"</p>"; return; }
 
   if (!data || data.length === 0) {
-    view.innerHTML = "<p class='empty'>Your cart is empty. Go scan or add a product.</p>";
+    view.innerHTML = "<p class='empty'>Your cart is empty. Go scan a product to add it.</p>";
     updateCartCountBadge(0);
     return;
   }
