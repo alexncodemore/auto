@@ -404,6 +404,28 @@
     <div id="businessList" class="stack"></div>
   </div>
 
+  <!-- ============ VERIFY EMAIL SCREEN ============ -->
+  <div id="screen-verify" class="center-screen hidden">
+    <div style="text-align:center;margin-bottom:6px;">
+      <h1 style="text-align:center;">Check your email</h1>
+      <p class="lede" style="text-align:center;">
+        We sent a verification code to <span id="verifyEmailLabel" class="mono" style="color:var(--ink);"></span>.
+        Enter it below to confirm your account.
+      </p>
+    </div>
+    <div class="field">
+      <label for="verifyCodeInput">Verification code</label>
+      <input id="verifyCodeInput" inputmode="numeric" maxlength="12" placeholder="Enter code" autocomplete="one-time-code"
+        onkeydown="if(event.key==='Enter')verifyCode()">
+    </div>
+    <div id="verifyError" class="errormsg"></div>
+    <button type="button" class="btn-primary btn-block" id="verifyBtn" onclick="verifyCode()">Confirm & continue</button>
+    <div class="row" style="margin-top:2px;">
+      <button type="button" class="btn-ghost" id="resendBtn" onclick="resendCode()">Resend code</button>
+      <button type="button" class="btn-ghost" onclick="backToLoginFromVerify()">Back to log in</button>
+    </div>
+  </div>
+
   <!-- ============ DASHBOARD ============ -->
   <div id="screen-dashboard" class="hidden" style="display:flex;flex-direction:column;flex:1;">
 
@@ -523,6 +545,7 @@ let currentCart = null;
 let codeReader = null;
 let scanning = false;
 let allProducts = [];
+let pendingVerifyEmail = null;
 
 /* =========================================================
    BOOT
@@ -548,6 +571,7 @@ let allProducts = [];
    ========================================================= */
 function showScreen(name){
   document.getElementById("screen-auth").classList.toggle("hidden", name !== "auth");
+  document.getElementById("screen-verify").classList.toggle("hidden", name !== "verify");
   document.getElementById("screen-store").classList.toggle("hidden", name !== "store");
   document.getElementById("screen-dashboard").classList.toggle("hidden", name !== "dashboard");
 }
@@ -609,13 +633,26 @@ async function register(){
 
   if (error) { errEl.textContent = error.message; return; }
 
+  // Supabase returns a user with an empty identities array when the email
+  // already belongs to a confirmed account (it won't error, for privacy reasons).
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    errEl.textContent = "That email is already registered. Try logging in instead.";
+    return;
+  }
+
   if (data.session) {
+    // Email confirmation is disabled on this project — user is signed in immediately.
     user = data.session.user;
     showScreen("store");
     toast("Welcome, " + name.split(" ")[0] + "!");
   } else {
-    toast("Check your email to confirm your account, then log in.");
-    setAuthMode("login");
+    // Email confirmation is required: a code was emailed to the user.
+    pendingVerifyEmail = email;
+    document.getElementById("verifyEmailLabel").textContent = email;
+    document.getElementById("verifyCodeInput").value = "";
+    document.getElementById("verifyError").textContent = "";
+    showScreen("verify");
+    toast("We emailed you a verification code.");
   }
 }
 
@@ -633,7 +670,20 @@ async function login(){
 
   btn.disabled = false; btn.textContent = "Log in";
 
-  if (error) { errEl.textContent = error.message; return; }
+  if (error) {
+    // Account exists but the email hasn't been confirmed yet — send them to enter the code.
+    if (/confirm/i.test(error.message)) {
+      pendingVerifyEmail = email;
+      document.getElementById("verifyEmailLabel").textContent = email;
+      document.getElementById("verifyCodeInput").value = "";
+      document.getElementById("verifyError").textContent = "";
+      showScreen("verify");
+      toast("Confirm your email first — enter the code we sent you.");
+      return;
+    }
+    errEl.textContent = error.message;
+    return;
+  }
 
   user = data.user;
   const savedBiz = localStorage.getItem("sc_business");
@@ -650,8 +700,65 @@ async function logout(){
   user = null;
   selectedBusiness = null;
   currentCart = null;
+  pendingVerifyEmail = null;
   localStorage.removeItem("sc_business");
   stopScanner();
+  showScreen("auth");
+  setAuthMode("login");
+}
+
+/* =========================================================
+   EMAIL VERIFICATION
+   ========================================================= */
+async function verifyCode(){
+  const code = document.getElementById("verifyCodeInput").value.trim();
+  const errEl = document.getElementById("verifyError");
+  errEl.textContent = "";
+
+  if (!pendingVerifyEmail) { errEl.textContent = "Start over from registration or login."; return; }
+  if (!code) { errEl.textContent = "Enter the code from your email."; return; }
+
+  const btn = document.getElementById("verifyBtn");
+  btn.disabled = true; btn.textContent = "Verifying...";
+
+  const { data, error } = await db.auth.verifyOtp({
+    email: pendingVerifyEmail,
+    token: code,
+    type: "signup"
+  });
+
+  btn.disabled = false; btn.textContent = "Confirm & continue";
+
+  if (error) { errEl.textContent = error.message; return; }
+
+  user = (data.session && data.session.user) || data.user;
+  pendingVerifyEmail = null;
+  toast("Email confirmed!");
+
+  const savedBiz = localStorage.getItem("sc_business");
+  if (savedBiz) {
+    selectedBusiness = JSON.parse(savedBiz);
+    showDashboard();
+  } else {
+    showScreen("store");
+  }
+}
+
+async function resendCode(){
+  if (!pendingVerifyEmail) return;
+  const btn = document.getElementById("resendBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending..."; }
+
+  const { error } = await db.auth.resend({ type: "signup", email: pendingVerifyEmail });
+
+  if (btn) { btn.disabled = false; btn.textContent = "Resend code"; }
+
+  if (error) { toast(error.message); return; }
+  toast("Code resent to " + pendingVerifyEmail);
+}
+
+function backToLoginFromVerify(){
+  pendingVerifyEmail = null;
   showScreen("auth");
   setAuthMode("login");
 }
@@ -1134,4 +1241,4 @@ function escapeHtml(str){
 }
 </script>
 </body>
-</html> 
+</html>
